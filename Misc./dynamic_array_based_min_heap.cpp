@@ -1,76 +1,52 @@
 #include <cstdlib>
 #include <cassert>
+#include <vector>
 
-template <typename type>
+template <typename T>
 class Minheap {
-    type *heap;
-    int size;
-    int num_elements;
+    std::vector<T> heap;
 
     public:
-        Minheap(int initial_size, bool *success);
-        ~Minheap();
-        bool insert(type element);
-        bool extract_min(type *element);
-        bool is_empty();
+        explicit Minheap(int initial_size);
+        bool insert(const T& element);
+        bool extract_min(T& element);
+        bool empty();
 
     private:
         void heapify_up(int index);
         void heapify_down(int index);
-        bool is_full();
 };
 
 /**
- * @brief Construct a new Minheap<type>:: Minheap object
- * @tparam type data type of the elements
- * @param initial_size initial size of the heap
- * @param success out parameter to indicate if the object was created successfully
+ * @brief Construct a new Minheap<T>:: Minheap object
+ * @tparam T data T of the elements
+ * @param initial_size initial capacity of the heap
  */
-template<typename type>
-Minheap<type>::Minheap(int initial_size, bool *success) {
-    size = initial_size;
-    num_elements = 0;
-    heap = (int *) malloc(sizeof(type) * initial_size);
-    *success = heap;
-}
-
-template<typename type>
-Minheap<type>::~Minheap() {
-    free(heap);
-    heap = nullptr;
+template<typename T>
+Minheap<T>::Minheap(int initial_size) {
+    heap = std::vector<T>(initial_size);
 }
 
 /**
  * @brief Check if the heap is empty
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @return true if the heap is empty
  * @return false if the heap is not empty
  */
-template<typename type>
-bool Minheap<type>::is_empty() {
-    return num_elements == 0;
-}
-
-/**
- * @brief Check if the heap is full
- * @tparam type data type of the elements
- * @return true if the heap is full
- * @return false if the heap is not full
- */
-template<typename type>
-bool Minheap<type>::is_full() {
-    return num_elements == size;
+template<typename T>
+inline bool Minheap<T>::empty() {
+    return heap.empty();
 }
 
 /**
  * @brief Heapify the heap upwards
- * @tparam type data type of the elements
- * @param index index to start heapifying from
+ * @tparam T data T of the elements
+ * @param index index to head heapifying from
  */
-template<typename type>
-void Minheap<type>::heapify_up(int index) {
+template<typename T>
+void Minheap<T>::heapify_up(int index) {
     while(index > 0 && heap[index] < heap[(index - 1) / 2]) {
-        type temp = heap[index];
+        T temp = heap[index];
         heap[index] = heap[(index - 1) / 2];
         heap[(index - 1) / 2] = temp;
         index = (index - 1) / 2;
@@ -79,39 +55,30 @@ void Minheap<type>::heapify_up(int index) {
 
 /**
  * @brief Insert an element into the heap
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param element element to insert
  * @return true if the element was inserted successfully
  * @return false if the heap is full and the heap could not be resized
  */
-template<typename type>
-bool Minheap<type>::insert(type element) {
-    if(is_full()) {
-        type *new_heap = (type *) realloc(heap, sizeof(type) * size * 2);
-        if(!new_heap) {
-            return false;
-        }
-
-        heap = new_heap;
-    }
-
-    heap[num_elements++] = element;
-    heapify_up(num_elements - 1);
+template<typename T>
+bool Minheap<T>::insert(const T& element) {
+    heap.push_back(element);
+    heapify_up(heap.size() - 1);
     return true;
 }
 
 /**
  * @brief Heapify the heap downwards
- * @tparam type data type of the elements
- * @param index index to start heapifying from
+ * @tparam T data T of the elements
+ * @param index index to head heapifying from
  */
-template<typename type>
-void Minheap<type>::heapify_down(int index) {
-    while(2 * index + 1 < num_elements) {
+template<typename T>
+void Minheap<T>::heapify_down(int index) {
+    while(2 * index + 1 < heap.size()) {
         int left_child = 2 * index + 1, right_child = 2 * index + 2;
         int smallest_child = left_child;
 
-        if(right_child < num_elements && heap[right_child] < heap[left_child]) {
+        if(right_child < heap.size() && heap[right_child] < heap[left_child]) {
             smallest_child = right_child;
         }
 
@@ -119,7 +86,7 @@ void Minheap<type>::heapify_down(int index) {
             break;
         }
 
-        type temp = heap[index];
+        T temp = heap[index];
         heap[index] = heap[smallest_child];
         heap[smallest_child] = temp;
         index = smallest_child;
@@ -128,43 +95,47 @@ void Minheap<type>::heapify_down(int index) {
 
 /**
  * @brief Extract the minimum element from the heap
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param element out parameter to store the minimum element
  * @return true if the element was extracted successfully
  * @return false if the heap is empty
  */
-template<typename type>
-bool Minheap<type>::extract_min(type *element) {
-    if(is_empty()) {
+template<typename T>
+bool Minheap<T>::extract_min(T& element) {
+    if(empty()) {
         return false;
     }
 
-    *element = heap[0];
-    heap[0] = heap[--num_elements];
+    element = heap[0];
+    heap[0] = heap[heap.size() - 1];
     heapify_down(0);
+    heap.erase(heap.begin() + heap.size() - 1);
     return true;
 }
 
 int main() {
-    bool success;
-    Minheap<int> *heap = new Minheap<int>(10, &success);
-    if(!success) {
-        return 1;
+    Minheap<int> heap(20);
+    std::vector<int> test = std::vector<int>(20);
+
+    for(int i = 0; i < 20; i++) {
+        test.push_back(i);
     }
 
-    for(int i = 0; i < 10; i++) {
-        heap->insert(i);
+    std::random_shuffle(test.begin(), test.end());
+    for(int i : test) {
+        heap.insert(i);
     }
 
     int element;
-    for(int i = 0; i < 10; i++) {
-        heap->extract_min(&element);
+    heap.extract_min(element);
+    heap.insert(0);
+
+    for(int i = 0; i < 20; i++) {
+        heap.extract_min(element);
         assert(element == i);
     }
 
-    assert(heap->is_empty());
-
-    delete(heap);
+    assert(heap.empty());
 
     return 0;
 }

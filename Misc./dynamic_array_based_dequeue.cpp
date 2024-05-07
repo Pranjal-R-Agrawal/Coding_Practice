@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
+#include <cstdio>
 
 template <typename type>
 class Dequeue {
@@ -8,7 +9,6 @@ class Dequeue {
     int start;
     int end;
     int size;
-    int num_elements;
 
     public:
         Dequeue(int initial_size, bool *success);
@@ -24,6 +24,7 @@ class Dequeue {
         bool decrease_size();
         void linearise(type *new_buffer);
         bool is_full();
+        int get_num_elements();
 };
 
 /**
@@ -35,7 +36,7 @@ class Dequeue {
 template <typename type>
 Dequeue<type>::Dequeue(int initial_size, bool *success) {
     size = initial_size;
-    start = end = num_elements = 0;
+    start = end = -1;
     buffer = (type *) malloc(sizeof(type) * initial_size);
     *success = buffer;
 }
@@ -53,8 +54,8 @@ Dequeue<type>::~Dequeue() {
  * @return false if the dequeue is not empty
  */
 template <typename type>
-bool Dequeue<type>::is_empty() {
-    return num_elements == 0;
+inline bool Dequeue<type>::is_empty() {
+    return start == -1;
 }
 
 /**
@@ -64,8 +65,22 @@ bool Dequeue<type>::is_empty() {
  * @return false if the dequeue is not full
  */
 template<typename type>
-bool Dequeue<type>::is_full() {
-    return num_elements == size;
+inline bool Dequeue<type>::is_full() {
+    return (start == end + 1) || (start == end - 1) || (start == 0 && end == size - 1);
+}
+
+/**
+ * @brief Get the number of elements in the dequeue
+ * @tparam type data type of the elements
+ * @return int number of elements in the dequeue
+ */
+template<typename type>
+int Dequeue<type>::get_num_elements() {
+    if(is_empty()) {
+        return 0;
+    }
+
+    return (end >= start)? end - start + 1 : (size - start) + (end + 1);
 }
 
 /**
@@ -78,15 +93,19 @@ void Dequeue<type>::linearise(type *new_buffer) {
     if(start > end) {
         memcpy(new_buffer, buffer + start, sizeof(type) * (size - start));
         memcpy(new_buffer + size - start, buffer, sizeof(type) * (end + 1));
-    } else {
+    } else if (!is_empty()) {
         memcpy(new_buffer, buffer + start, sizeof(type) * (end - start + 1));
     }
 
     free(buffer);
     buffer = nullptr;
 
-    end = num_elements - 1;
-    start = 0;
+    if(!is_empty()) {
+        end = get_num_elements() - 1;
+        start = 0;
+    } else {
+        start = end = -1;
+    }
 }
 
 /**
@@ -143,10 +162,13 @@ bool Dequeue<type>::pop_front(type *element) {
     }
 
     *element = buffer[start];
-    start = (start + 1) % size;
-    num_elements -= 1;
+    if(get_num_elements() == 1) {
+        start = end = -1;
+    } else {
+        start = (start + 1) % size;
+    }
 
-    if(num_elements < size / 4) {
+    if(get_num_elements() < size / 4) {
         decrease_size();
     }
 
@@ -166,9 +188,13 @@ bool Dequeue<type>::push_front(type *element) {
         return false;
     }
 
-    start = (start == 0)? size - 1 : start - 1;
+    if(is_empty()) {
+        start = end = 0;
+    } else {
+        start = (start == 0)? size - 1 : start - 1;
+    }
+
     buffer[start] = *element;
-    num_elements += 1;
     return true;
 }
 
@@ -186,10 +212,13 @@ bool Dequeue<type>::pop_back(type *element) {
     }
 
     *element = buffer[end];
-    end = (end == 0)? size - 1 : end - 1;
-    num_elements -= 1;
+    if(get_num_elements() == 1) {
+        start = end = -1;
+    } else {
+        end = (end == 0)? size - 1 : end - 1;
+    }
 
-    if(num_elements < size / 4) {
+    if(get_num_elements() < size / 4) {
         decrease_size();
     }
 
@@ -209,15 +238,19 @@ bool Dequeue<type>::push_back(type *element) {
         return false;
     }
 
-    end = (end + 1) % size;
+    if(is_empty()) {
+        start = end = 0;
+    } else {
+        end = (end + 1) % size;
+    }
+
     buffer[end] = *element;
-    num_elements += 1;
     return true;
 }
 
 int main() {
     bool success;
-    Dequeue<int> *dequeue = new Dequeue<int>(1, &success);
+    Dequeue<int> *dequeue = new Dequeue<int>(10, &success);
 
     int element;
     assert(dequeue->is_empty());

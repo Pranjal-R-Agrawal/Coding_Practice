@@ -1,277 +1,248 @@
-#include <cstdlib>
-#include <cstring>
 #include <cassert>
-#include <cstdio>
+#include <cstring>
 
-template <typename type>
+template <typename T>
 class Dequeue {
-    type *buffer;
-    int start;
-    int end;
-    int size;
+    T *buffer;
+    int head;
+    int tail;
+    int capacity;
 
     public:
-        Dequeue(int initial_size, bool *success);
+        explicit Dequeue(int initial_size);
         ~Dequeue();
-        bool push_back(type *element);
-        bool push_front(type *element);
-        bool pop_back(type *element);
-        bool pop_front(type *element);
-        bool is_empty();
+        void push_back(const T& element);
+        void push_front(const T& element);
+        bool pop_back(T& element);
+        bool pop_front(T& element);
+        bool empty();
 
     private:
-        bool increase_size();
-        bool decrease_size();
-        void linearise(type *new_buffer);
-        bool is_full();
+        enum Operation {PUSH, POP};
+        enum Direction {FRONT, BACK};
+
+        void resize_if_needed();
+        void linearise(T* new_buffer);
+        bool full();
         int get_num_elements();
+        void update_head_tail(Operation operation, Direction direction);
 };
 
 /**
- * @brief Construct a new Dequeue<type>:: Dequeue object
- * @tparam type data type of the elements
- * @param initial_size initial size of the dequeue
+ * @brief Construct a new Dequeue<T>:: Dequeue object
+ * @tparam T data T of the elements
+ * @param initial_size initial capacity of the dequeue
  * @param success out parameter to indicate if the object was created successfully
  */
-template <typename type>
-Dequeue<type>::Dequeue(int initial_size, bool *success) {
-    size = initial_size;
-    start = end = -1;
-    buffer = (type *) malloc(sizeof(type) * initial_size);
-    *success = buffer;
+template <typename T>
+Dequeue<T>::Dequeue(int initial_size) {
+    capacity = initial_size;
+    head = tail = -1;
+    buffer = new T[initial_size];
 }
 
-template<typename type>
-Dequeue<type>::~Dequeue() {
-    free(buffer);
+template<typename T>
+Dequeue<T>::~Dequeue() {
+    delete[] buffer;
     buffer = nullptr;
 }
 
 /**
  * @brief Check if the dequeue is empty
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @return true if the dequeue is empty
  * @return false if the dequeue is not empty
  */
-template <typename type>
-inline bool Dequeue<type>::is_empty() {
-    return start == -1;
+template <typename T>
+inline bool Dequeue<T>::empty() {
+    return head == -1;
 }
 
 /**
  * @brief Check if the dequeue is full
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @return true if the dequeue is full
  * @return false if the dequeue is not full
  */
-template<typename type>
-inline bool Dequeue<type>::is_full() {
-    return (start == end + 1) || (start == end - 1) || (start == 0 && end == size - 1);
+template<typename T>
+inline bool Dequeue<T>::full() {
+    return (head != 0 && ((head == tail + 1) || (head == tail - 1))) || (head == 0 && tail == capacity - 1);
 }
 
 /**
  * @brief Get the number of elements in the dequeue
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @return int number of elements in the dequeue
  */
-template<typename type>
-int Dequeue<type>::get_num_elements() {
-    if(is_empty()) {
+template<typename T>
+int Dequeue<T>::get_num_elements() {
+    if(empty()) {
         return 0;
     }
 
-    return (end >= start)? end - start + 1 : (size - start) + (end + 1);
+    return (tail >= head)? tail - head + 1 : (capacity - head) + (tail + 1);
 }
 
 /**
  * @brief Linearise the circular buffer and store the elements in a new buffer
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param new_buffer new buffer to store the elements
  */
-template<typename type>
-void Dequeue<type>::linearise(type *new_buffer) {
-    if(start > end) {
-        memcpy(new_buffer, buffer + start, sizeof(type) * (size - start));
-        memcpy(new_buffer + size - start, buffer, sizeof(type) * (end + 1));
-    } else if (!is_empty()) {
-        memcpy(new_buffer, buffer + start, sizeof(type) * (end - start + 1));
+template<typename T>
+void Dequeue<T>::linearise(T *new_buffer) {
+    if(head > tail) {
+        memcpy(new_buffer, buffer + head, sizeof(T) * (capacity - head));
+        memcpy(new_buffer + capacity - head, buffer, sizeof(T) * (tail + 1));
+    } else if(!empty()) {
+        memcpy(new_buffer, buffer + head, sizeof(T) * (tail - head + 1));
     }
 
-    free(buffer);
-    buffer = nullptr;
-
-    if(!is_empty()) {
-        end = get_num_elements() - 1;
-        start = 0;
+    if(!empty()) {
+        tail = get_num_elements() - 1;
+        head = 0;
     } else {
-        start = end = -1;
+        head = tail = -1;
     }
 }
 
 /**
- * @brief Double the size of the buffer
- * @tparam type data type of the elements
- * @return true if the size was increased successfully
- * @return false if the size could not be increased
+ * @brief Resize the buffer if it is either full or less than 1/4th full
+ * @tparam T data T of the elements
+ * @return true if the buffer was resized successfully
+ * @return false if the buffer could not be resized
  */
-template<typename type>
-bool Dequeue<type>::increase_size() {
-    type *new_buffer = (type *) malloc(sizeof(type) * size * 2);
-    if(!new_buffer) {
-        return false;
+template<typename T>
+void Dequeue<T>::resize_if_needed() {
+    int new_capacity = capacity;
+    if(full()) {
+        new_capacity *= 2;
+    } else if(get_num_elements() < capacity / 4) {
+        new_capacity = (capacity / 2) + 1;
+    } else {
+        return;
     }
 
-    linearise(new_buffer);
-    buffer = new_buffer;
-    size *= 2;
 
-    return true;
+    T* new_buffer = new T[new_capacity];
+    linearise(new_buffer);
+
+    delete[] buffer;
+    buffer = new_buffer;
+    capacity = new_capacity;
 }
 
-/**
- * @brief Halve the size of the buffer
- * @tparam type data type of the elements
- * @return true if the size was decreased successfully
- * @return false if the size could not be decreased
- */
-template<typename type>
-bool Dequeue<type>::decrease_size() {
-    type *new_buffer = (type *) malloc(sizeof(type) * ((size / 2) + 1));
-    if(!new_buffer) {
-        return false;
+template<typename T>
+void Dequeue<T>::update_head_tail(Dequeue::Operation operation, Dequeue::Direction direction) {
+    if(operation == PUSH) {
+        if(empty()) {
+            head = tail = 0;
+        } else if(direction == FRONT) {
+            head = (head == 0)? capacity - 1 : head - 1;
+        } else {
+            tail = (tail + 1) % capacity;
+        }
+    } else {
+        if(get_num_elements() == 1) {
+            head = tail = -1;
+        } else if(direction == FRONT) {
+            head = (head + 1) % capacity;
+        } else {
+            tail = (tail == 0)? capacity - 1 : tail - 1;
+        }
     }
-
-    linearise(new_buffer);
-    buffer = new_buffer;
-    size = (size / 2) + 1;
-
-    return true;
 }
 
 /**
  * @brief Remove the element from the front of the dequeue
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param element out parameter to store the element
  * @return true if the element was removed successfully
  * @return false if the dequeue is empty
  */
-template<typename type>
-bool Dequeue<type>::pop_front(type *element) {
-    if(is_empty()) {
+template<typename T>
+bool Dequeue<T>::pop_front(T& element) {
+    if(empty()) {
         return false;
     }
 
-    *element = buffer[start];
-    if(get_num_elements() == 1) {
-        start = end = -1;
-    } else {
-        start = (start + 1) % size;
-    }
-
-    if(get_num_elements() < size / 4) {
-        decrease_size();
-    }
+    element = buffer[head];
+    update_head_tail(POP, FRONT);
+    resize_if_needed();
 
     return true;
 }
 
 /**
  * @brief Add an element to the front of the dequeue
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param element element to be added
  * @return true if the element was added successfully
- * @return false if the dequeue is full and the size could not be increased
+ * @return false if the dequeue is full and the capacity could not be increased
  */
-template<typename type>
-bool Dequeue<type>::push_front(type *element) {
-    if(is_full() && !increase_size()) {
-        return false;
-    }
-
-    if(is_empty()) {
-        start = end = 0;
-    } else {
-        start = (start == 0)? size - 1 : start - 1;
-    }
-
-    buffer[start] = *element;
-    return true;
+template<typename T>
+void Dequeue<T>::push_front(const T& element) {
+    resize_if_needed();
+    update_head_tail(PUSH, FRONT);
+    buffer[head] = element;
 }
 
 /**
  * @brief Remove the element from the back of the dequeue
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param element out parameter to store the element
  * @return true if the element was removed successfully
  * @return false if the dequeue is empty
  */
-template<typename type>
-bool Dequeue<type>::pop_back(type *element) {
-    if(is_empty()) {
+template<typename T>
+bool Dequeue<T>::pop_back(T& element) {
+    if(empty()) {
         return false;
     }
 
-    *element = buffer[end];
-    if(get_num_elements() == 1) {
-        start = end = -1;
-    } else {
-        end = (end == 0)? size - 1 : end - 1;
-    }
-
-    if(get_num_elements() < size / 4) {
-        decrease_size();
-    }
+    element = buffer[tail];
+    update_head_tail(POP, BACK);
+    resize_if_needed();
 
     return true;
 }
 
 /**
  * @brief Add an element to the back of the dequeue
- * @tparam type data type of the elements
+ * @tparam T data T of the elements
  * @param element element to be added
  * @return true if the element was added successfully
- * @return false if the dequeue is full and the size could not be increased
+ * @return false if the dequeue is full and the capacity could not be increased
  */
-template<typename type>
-bool Dequeue<type>::push_back(type *element) {
-    if(is_full() && !increase_size()) {
-        return false;
-    }
-
-    if(is_empty()) {
-        start = end = 0;
-    } else {
-        end = (end + 1) % size;
-    }
-
-    buffer[end] = *element;
-    return true;
+template<typename T>
+void Dequeue<T>::push_back(const T& element) {
+    resize_if_needed();
+    update_head_tail(PUSH, BACK);
+    buffer[tail] = element;
 }
 
 int main() {
-    bool success;
-    Dequeue<int> *dequeue = new Dequeue<int>(10, &success);
+    Dequeue<int> *dequeue = new Dequeue<int>(10);
 
     int element;
-    assert(dequeue->is_empty());
-    assert(!dequeue->pop_back(&element));
-    assert(!dequeue->pop_front(&element));
+    assert(dequeue->empty());
+    assert(!dequeue->pop_back(element));
+    assert(!dequeue->pop_front(element));
 
     for(element = 0; element < 10; element++) {
-        assert(dequeue->push_front(&element));
+        dequeue->push_front(element);
     }
 
     for(int i = 0; i < 10; i++) {
-        assert(dequeue->pop_back(&element));
+        assert(dequeue->pop_back(element));
         assert(element == i);
     }
 
     for(element = 0; element < 10; element++) {
-        assert(dequeue->push_back(&element));
+        dequeue->push_back(element);
     }
 
     for(int i = 0; i < 10; i++) {
-        assert(dequeue->pop_front(&element));
+        assert(dequeue->pop_front(element));
         assert(element == i);
     }
 

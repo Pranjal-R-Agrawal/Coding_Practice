@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <cassert>
 #include <vector>
 
@@ -24,7 +23,8 @@ class Minheap {
  */
 template<typename T>
 Minheap<T>::Minheap(int initial_size) {
-    heap = std::vector<T>(initial_size);
+    heap = std::vector<T>();
+    heap.reserve(initial_size);
 }
 
 /**
@@ -115,7 +115,8 @@ bool Minheap<T>::extract_min(T& element) {
 
 int main() {
     Minheap<int> heap(20);
-    std::vector<int> test = std::vector<int>(20);
+    std::vector<int> test = std::vector<int>();
+    test.reserve(20);
 
     for(int i = 0; i < 20; i++) {
         test.push_back(i);
